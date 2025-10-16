@@ -140,7 +140,7 @@ Run the test suite:
 python test_basic.py
 ```
 
-## 📚 Supported SQL Syntax
+##  Supported SQL Syntax
 
 ### Data Types
 - `INT` - Integer numbers
@@ -190,7 +190,7 @@ DELETE FROM table_name WHERE condition;
 - String and numeric comparisons
 - NULL handling
 
-## 🎮 Interactive Commands
+##  Interactive Commands
 
 The CoreDB shell supports several special commands:
 
@@ -202,7 +202,7 @@ The CoreDB shell supports several special commands:
 - `load <file>` - Execute SQL from file
 - `quit`/`exit` - Exit the shell
 
-## 📝 Example Usage
+## Example Usage
 
 ```python
 from coredb.storage import StorageManager
@@ -218,7 +218,7 @@ result = executor.execute_raw_sql("INSERT INTO products VALUES (1, 'Laptop', 999
 result = executor.execute_raw_sql("SELECT * FROM products WHERE price > 500")
 ```
 
-## 🗂️ Data Storage
+##  Data Storage
 
 CoreDB stores data in JSON files:
 - `schema.json` - Table definitions and metadata
@@ -226,7 +226,7 @@ CoreDB stores data in JSON files:
 
 This makes the database portable and easy to inspect or backup.
 
-## 🧪 Testing
+##  Testing
 
 Run the basic test suite:
 
@@ -240,7 +240,7 @@ The tests cover:
 - Query execution
 - Error handling
 
-## 🚧 Limitations
+##  Limitations
 
 CoreDB is a minimal implementation with some limitations:
 
@@ -251,7 +251,7 @@ CoreDB is a minimal implementation with some limitations:
 - No concurrent access support
 - Limited data type validation
 
-## 🔮 Future Enhancements
+##  Future Enhancements
 
 Potential improvements for CoreDB:
 
@@ -264,14 +264,14 @@ Potential improvements for CoreDB:
 - [ ] Additional data types
 - [ ] Backup and restore utilities
 
-## 📄 License
+##  License
 
 This project is for educational purposes. Feel free to use, modify, and distribute.
 
-## 🤝 Contributing
+## Contributing
 
 This is a learning project, but suggestions and improvements are welcome!
 
 ---
 
-**CoreDB v0.1.0** - Built with ❤️ in Python
+**CoreDB v0.1.0** - Built with ❤️ in Python by Arnav Sharda(123cs0064) Rohit Chauhan(123cs0054)
