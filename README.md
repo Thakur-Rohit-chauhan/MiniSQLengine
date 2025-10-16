@@ -1,18 +1,66 @@
-# CoreDB - A Minimal SQL Database Engine
+# DBMS Project Report  
+## CoreDB – A Minimal SQL Database Engine  
 
-CoreDB is a minimal but functional SQL database management system (DBMS) implemented entirely in Python. It provides a simplified SQL interface similar to SQLite, built from scratch without external database dependencies.
+---
 
-## 🚀 Features
+## 1. Introduction
 
-- **SQL Parser**: Supports basic SQL statements (CREATE TABLE, INSERT, SELECT, UPDATE, DELETE)
-- **Storage Engine**: JSON-based persistence for tables and data
-- **Query Executor**: Executes parsed SQL statements with basic WHERE clause support
-- **Interactive REPL**: Command-line interface for running SQL commands
-- **Type System**: Supports INT, TEXT, FLOAT, and BOOLEAN data types
-- **Schema Management**: Tracks table structures and constraints
-- **Error Handling**: Comprehensive error reporting and validation
+**CoreDB** is a minimal yet functional SQL Database Management System (DBMS) implemented entirely in Python. It provides a simplified SQL interface inspired by SQLite but is built from scratch without using any external database libraries.
 
-## 📁 Project Structure
+This project is designed for educational purposes — to demonstrate how database systems parse, store, and execute SQL commands internally.
+
+### Objectives
+- Understand the internal architecture of a DBMS.  
+- Implement a minimal SQL engine supporting essential database operations.  
+- Explore schema management and persistent data storage using JSON.  
+- Provide an interactive SQL shell for executing commands in real-time.  
+
+---
+
+## 2. Features
+
+CoreDB offers the following core features:
+
+- **SQL Parser:** Supports basic SQL statements such as `CREATE TABLE`, `INSERT`, `SELECT`, `UPDATE`, and `DELETE`.  
+- **Storage Engine:** JSON-based data persistence system for tables and schemas.  
+- **Query Executor:** Executes parsed SQL statements and supports basic `WHERE` conditions.  
+- **Interactive REPL:** Provides a command-line SQL shell.  
+- **Type System:** Supports `INT`, `TEXT`, `FLOAT`, and `BOOLEAN` data types.  
+- **Schema Management:** Manages table definitions, columns, and constraints.  
+- **Error Handling:** Provides robust validation and detailed error messages.  
+
+---
+
+## 3. System Architecture Diagram
+
+Below is a high-level overview of the **CoreDB architecture** showing how different components interact internally.
+
+```mermaid
+flowchart TD
+
+A[User Input / SQL Command] --> B[Lexer]
+B --> C[Parser]
+C --> D[Abstract Syntax Tree (AST)]
+D --> E[Query Executor]
+E --> F[Storage Manager]
+F --> G[JSON Files (schema.json, table_data.json)]
+E --> H[Result Formatter]
+H --> I[Output to REPL Console]
+
+subgraph CoreDB Engine
+    B
+    C
+    D
+    E
+    F
+end
+
+style A fill:#E3F2FD,stroke:#1565C0,stroke-width:1px
+style CoreDB Engine fill:#E8F5E9,stroke:#2E7D32,stroke-width:1px
+style G fill:#FFF3E0,stroke:#EF6C00,stroke-width:1px
+style I fill:#F3E5F5,stroke:#6A1B9A,stroke-width:1px
+
+
 
 ```
 coredb/
@@ -24,17 +72,23 @@ coredb/
 ├── storage.py          # Data persistence and schema management
 ├── executor.py         # Query execution engine
 └── main.py             # REPL interface
+
+Each component mirrors a core subsystem of a traditional DBMS.
+
 ```
 
-## 🛠️ Installation
+### 4. Installation and Setup
 
-CoreDB requires only Python 3.6+ with no external dependencies:
+#### Requirements
+- Python **3.6 or higher**
+- No external dependencies required
 
+#### Installation Steps
 ```bash
-# Clone or download the project
+# Clone or download the repository
 cd CoreDB
 
-# No installation required - just run directly!
+# Run directly
 python -m coredb.main
 ```
 
