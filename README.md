@@ -38,16 +38,16 @@ Below is a high-level overview of the **CoreDB architecture** showing how differ
 ```mermaid
 flowchart TD
 
-A[User Input / SQL Command] --> B[Lexer]
-B --> C[Parser]
-C --> D[Abstract Syntax Tree (AST)]
-D --> E[Query Executor]
-E --> F[Storage Manager]
-F --> G[JSON Files (schema.json, table_data.json)]
-E --> H[Result Formatter]
-H --> I[Output to REPL Console]
+A["User Input / SQL Command"] --> B["Lexer"];
+B --> C["Parser"];
+C --> D["Abstract Syntax Tree (AST)"];
+D --> E["Query Executor"];
+E --> F["Storage Manager"];
+F --> G["JSON Files (schema.json, table_data.json)"];
+E --> H["Result Formatter"];
+H --> I["Output to REPL Console"];
 
-subgraph CoreDB Engine
+subgraph CoreDB_Engine ["CoreDB Engine"]
     B
     C
     D
@@ -55,13 +55,21 @@ subgraph CoreDB Engine
     F
 end
 
-style A fill:#E3F2FD,stroke:#1565C0,stroke-width:1px
-style CoreDB Engine fill:#E8F5E9,stroke:#2E7D32,stroke-width:1px
-style G fill:#FFF3E0,stroke:#EF6C00,stroke-width:1px
-style I fill:#F3E5F5,stroke:#6A1B9A,stroke-width:1px
+%% ---- Styling (optimized for dark backgrounds) ----
+style A fill:#0D47A1,stroke:#90CAF9,color:#FFFFFF,stroke-width:1.5px;
+style CoreDB_Engine fill:#1B5E20,stroke:#66BB6A,color:#E8F5E9,stroke-width:1.5px;
+style G fill:#BF360C,stroke:#FFB74D,color:#FFF3E0,stroke-width:1.5px;
+style I fill:#4A148C,stroke:#CE93D8,color:#F3E5F5,stroke-width:1.5px;
+style B fill:#263238,stroke:#80DEEA,color:#E0F7FA,stroke-width:1px;
+style C fill:#37474F,stroke:#80CBC4,color:#E0F2F1,stroke-width:1px;
+style D fill:#212121,stroke:#B0BEC5,color:#ECEFF1,stroke-width:1px;
+style E fill:#004D40,stroke:#4DB6AC,color:#E0F2F1,stroke-width:1px;
+style F fill:#3E2723,stroke:#A1887F,color:#EFEBE9,stroke-width:1px;
+style H fill:#1A237E,stroke:#7986CB,color:#E8EAF6,stroke-width:1px;
 
 
-
+```
+### 3.File Structure
 ```
 coredb/
 ├── __init__.py          # Package initialization
