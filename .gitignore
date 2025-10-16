@@ -1,41 +1,86 @@
-# Prerequisites
-*.d
+# CoreDB - A minimal SQL database engine
+# Python-specific ignores
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
 
-# Precompiled Headers
-*.gch
-*.pch
-
-# Linker files
-*.ilk
-
-# Debugger Files
-*.pdb
-
-# Compiled Dynamic libraries
+# C extensions
 *.so
-*.dylib
-*.dll
 
-# Fortran module files
-*.mod
-*.smod
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
+# PyInstaller
+*.manifest
+*.spec
 
-# Executables
-*.exe
-*.out
-*.app
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
 
-# debug information files
-*.dwo
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Virtual environments
+dbenv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# CoreDB specific - database files (optional - remove if you want to track them)
+coredb_data/
+demo_data/
+test_db/
+*.json
+
+# Logs
+*.log
