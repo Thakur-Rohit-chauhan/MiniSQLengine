@@ -38,6 +38,17 @@ class TokenType(Enum):
     ON = "ON"
     AS = "AS"
     REFERENCES = "REFERENCES"
+    DISTINCT = "DISTINCT"
+    GROUP = "GROUP"
+    BY = "BY"
+    ORDER = "ORDER"
+    BETWEEN = "BETWEEN"
+    MAX = "MAX"
+    MIN = "MIN"
+    COUNT = "COUNT"
+    SUM = "SUM"
+    AVG = "AVG"
+    HAVING = "HAVING"
     
     # Data types
     INT = "INT"
@@ -125,6 +136,17 @@ class SQLTokenizer:
         'ON': TokenType.ON,
         'AS': TokenType.AS,
         'REFERENCES': TokenType.REFERENCES,
+        'DISTINCT': TokenType.DISTINCT,
+        'GROUP': TokenType.GROUP,
+        'BY': TokenType.BY,
+        'ORDER': TokenType.ORDER,
+        'BETWEEN': TokenType.BETWEEN,
+        'MAX': TokenType.MAX,
+        'MIN': TokenType.MIN,
+        'COUNT': TokenType.COUNT,
+        'SUM': TokenType.SUM,
+        'AVG': TokenType.AVG,
+        'HAVING': TokenType.HAVING,
         'INT': TokenType.INT,
         'TEXT': TokenType.TEXT,
         'FLOAT': TokenType.FLOAT,

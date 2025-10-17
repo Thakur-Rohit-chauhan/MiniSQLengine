@@ -190,6 +190,26 @@ class QueryExecutor:
             if stmt.where_clause:
                 data = self._apply_where_clause(data, stmt.where_clause, stmt.table_name)
         
+        # Apply DISTINCT if specified
+        if stmt.distinct:
+            data = self._apply_distinct(data)
+        
+        # Apply GROUP BY if specified
+        if stmt.group_by:
+            data = self._apply_group_by(data, stmt.group_by, stmt.columns)
+        
+        # Apply HAVING clause if specified
+        if stmt.having_clause:
+            data = self._apply_where_clause(data, stmt.having_clause, stmt.table_name)
+        
+        # Apply ORDER BY if specified
+        if stmt.order_by:
+            data = self._apply_order_by(data, stmt.order_by)
+        
+        # Apply LIMIT if specified
+        if stmt.limit:
+            data = data[:stmt.limit]
+        
         return QueryResult(
             success=True,
             message=f"Selected {len(data)} row(s)",
@@ -320,6 +340,10 @@ class QueryExecutor:
                 return column_value <= condition_value
             elif condition.operator == '>=':
                 return column_value >= condition_value
+            elif condition.operator == 'BETWEEN':
+                # Handle BETWEEN operator
+                value1, value2 = condition_value
+                return value1 <= column_value <= value2
             else:
                 raise ValueError(f"Unsupported comparison operator: {condition.operator}")
         
@@ -650,6 +674,102 @@ class QueryExecutor:
                         if key.endswith(f'.{col}') or key == col:
                             selected_row[col] = value
                             break
+                    else:
+                        # If column not found, it might be an aggregate function
+                        # Check if it's an aggregate function with alias
+                        if ' AS ' in col:
+                            # Extract the actual column expression
+                            actual_col = col.split(' AS ')[0].strip()
+                            if actual_col in row:
+                                selected_row[col] = row[actual_col]
+                        elif '(' in col and ')' in col:
+                            # This is an aggregate function without alias
+                            if col in row:
+                                selected_row[col] = row[col]
             result.append(selected_row)
         
         return result
+    
+    def _apply_distinct(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Apply DISTINCT to remove duplicate rows."""
+        seen = set()
+        result = []
+        for row in data:
+            # Create a tuple of all values for comparison
+            row_tuple = tuple(sorted(row.items()))
+            if row_tuple not in seen:
+                seen.add(row_tuple)
+                result.append(row)
+        return result
+    
+    def _apply_group_by(self, data: List[Dict[str, Any]], group_by: List[str], 
+                       columns: List[str]) -> List[Dict[str, Any]]:
+        """Apply GROUP BY with aggregate functions."""
+        if not data:
+            return data
+        
+        # Group data by the specified columns
+        groups = {}
+        for row in data:
+            # Create group key from group_by columns
+            group_key = tuple(row.get(col, None) for col in group_by)
+            if group_key not in groups:
+                groups[group_key] = []
+            groups[group_key].append(row)
+        
+        # Process each group and apply aggregate functions
+        result = []
+        for group_key, group_rows in groups.items():
+            result_row = {}
+            
+            # Add group by columns
+            for i, col in enumerate(group_by):
+                result_row[col] = group_key[i]
+            
+            # Process aggregate functions in columns
+            for col_expr in columns:
+                if '(' in col_expr and ')' in col_expr:
+                    # This is an aggregate function
+                    func_name = col_expr.split('(')[0].upper()
+                    if func_name in ['COUNT', 'SUM', 'AVG', 'MAX', 'MIN']:
+                        # Extract column name from function
+                        if 'COUNT(*)' in col_expr:
+                            result_row[col_expr] = len(group_rows)
+                        elif 'COUNT(DISTINCT' in col_expr:
+                            # Handle COUNT(DISTINCT column)
+                            col_name = col_expr.split('DISTINCT ')[1].split(')')[0]
+                            distinct_values = set(row.get(col_name) for row in group_rows if row.get(col_name) is not None)
+                            result_row[col_expr] = len(distinct_values)
+                        else:
+                            # Extract column name from function
+                            col_name = col_expr.split('(')[1].split(')')[0]
+                            values = [row.get(col_name) for row in group_rows if row.get(col_name) is not None]
+                            
+                            if func_name == 'COUNT':
+                                result_row[col_expr] = len(values)
+                            elif func_name == 'SUM':
+                                result_row[col_expr] = sum(values) if values else 0
+                            elif func_name == 'AVG':
+                                result_row[col_expr] = sum(values) / len(values) if values else 0
+                            elif func_name == 'MAX':
+                                result_row[col_expr] = max(values) if values else None
+                            elif func_name == 'MIN':
+                                result_row[col_expr] = min(values) if values else None
+                else:
+                    # Regular column - take first value from group
+                    result_row[col_expr] = group_rows[0].get(col_expr) if group_rows else None
+            
+            result.append(result_row)
+        
+        return result
+    
+    def _apply_order_by(self, data: List[Dict[str, Any]], order_by: List[str]) -> List[Dict[str, Any]]:
+        """Apply ORDER BY to sort data."""
+        if not data:
+            return data
+        
+        # Sort by the specified columns
+        def sort_key(row):
+            return tuple(row.get(col, None) for col in order_by)
+        
+        return sorted(data, key=sort_key)

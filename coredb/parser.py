@@ -100,21 +100,27 @@ class SelectStatement(ASTNode):
     table_alias: Optional[str] = None
     joins: List[JoinClause] = None
     where_clause: Optional['WhereClause'] = None
-    order_by: Optional[str] = None
+    group_by: Optional[List[str]] = None
+    having_clause: Optional['WhereClause'] = None
+    order_by: Optional[List[str]] = None
     limit: Optional[int] = None
+    distinct: bool = False
     
     def __post_init__(self):
         if self.joins is None:
             self.joins = []
     
     def __str__(self) -> str:
+        distinct_str = "DISTINCT " if self.distinct else ""
         cols_str = ", ".join(self.columns)
         alias_str = f" AS {self.table_alias}" if self.table_alias else ""
         joins_str = " ".join(str(join) for join in self.joins)
         where_str = f" WHERE {self.where_clause}" if self.where_clause else ""
-        order_str = f" ORDER BY {self.order_by}" if self.order_by else ""
+        group_str = f" GROUP BY {', '.join(self.group_by)}" if self.group_by else ""
+        having_str = f" HAVING {self.having_clause}" if self.having_clause else ""
+        order_str = f" ORDER BY {', '.join(self.order_by)}" if self.order_by else ""
         limit_str = f" LIMIT {self.limit}" if self.limit else ""
-        return f"SELECT {cols_str} FROM {self.table_name}{alias_str} {joins_str}{where_str}{order_str}{limit_str}"
+        return f"SELECT {distinct_str}{cols_str} FROM {self.table_name}{alias_str} {joins_str}{where_str}{group_str}{having_str}{order_str}{limit_str}"
 
 
 @dataclass
@@ -409,6 +415,12 @@ class SQLParser:
         # SELECT
         self._expect_token(TokenType.SELECT)
         
+        # Check for DISTINCT
+        distinct = False
+        if self._current_token() and self._current_token().type == TokenType.DISTINCT:
+            self._consume_token()  # consume DISTINCT
+            distinct = True
+        
         # column list
         columns = []
         if self._current_token() and self._current_token().type == TokenType.ASTERISK:
@@ -416,32 +428,7 @@ class SQLParser:
             columns = ['*']
         else:
             while True:
-                # Handle table.column syntax
-                col_parts = []
-                col_token = self._expect_token(TokenType.IDENTIFIER)
-                col_parts.append(col_token.value)
-                
-                # Check for table.column syntax
-                if self._current_token() and self._current_token().type == TokenType.DOT:
-                    self._consume_token()  # consume dot
-                    col_token2 = self._expect_token(TokenType.IDENTIFIER)
-                    col_parts.append(col_token2.value)
-                    column = ".".join(col_parts)
-                else:
-                    column = col_parts[0]
-                
-                # Check for column alias (AS keyword or direct alias)
-                if self._current_token() and self._current_token().type == TokenType.AS:
-                    self._consume_token()  # consume AS
-                    alias_token = self._expect_token(TokenType.IDENTIFIER)
-                    column = f"{column} AS {alias_token.value}"
-                elif (self._current_token() and 
-                      self._current_token().type == TokenType.IDENTIFIER and
-                      not self._current_token().value.upper() in ['FROM', 'WHERE', 'ORDER', 'GROUP', 'HAVING']):
-                    # Direct alias without AS keyword
-                    alias_token = self._consume_token()
-                    column = f"{column} AS {alias_token.value}"
-                
+                column = self._parse_column_expression()
                 columns.append(column)
                 
                 if self._current_token() and self._current_token().type == TokenType.COMMA:
@@ -480,12 +467,49 @@ class SQLParser:
         if self._current_token() and self._current_token().type == TokenType.WHERE:
             where_clause = self._parse_where_clause()
         
+        # Optional GROUP BY clause
+        group_by = None
+        if self._current_token() and self._current_token().type == TokenType.GROUP:
+            self._consume_token()  # consume GROUP
+            self._expect_token(TokenType.BY)  # consume BY
+            group_by = []
+            while True:
+                col_token = self._expect_token(TokenType.IDENTIFIER)
+                group_by.append(col_token.value)
+                if self._current_token() and self._current_token().type == TokenType.COMMA:
+                    self._consume_token()  # consume comma
+                else:
+                    break
+        
+        # Optional HAVING clause
+        having_clause = None
+        if self._current_token() and self._current_token().type == TokenType.HAVING:
+            having_clause = self._parse_where_clause()
+        
+        # Optional ORDER BY clause
+        order_by = None
+        if self._current_token() and self._current_token().type == TokenType.ORDER:
+            self._consume_token()  # consume ORDER
+            self._expect_token(TokenType.BY)  # consume BY
+            order_by = []
+            while True:
+                col_token = self._expect_token(TokenType.IDENTIFIER)
+                order_by.append(col_token.value)
+                if self._current_token() and self._current_token().type == TokenType.COMMA:
+                    self._consume_token()  # consume comma
+                else:
+                    break
+        
         return SelectStatement(
             columns=columns,
             table_name=table_name,
             table_alias=table_alias,
             joins=joins,
-            where_clause=where_clause
+            where_clause=where_clause,
+            group_by=group_by,
+            having_clause=having_clause,
+            order_by=order_by,
+            distinct=distinct
         )
     
     def _parse_update(self) -> UpdateStatement:
@@ -632,6 +656,15 @@ class SQLParser:
         else:
             column = column_parts[0]
         
+        # Check for BETWEEN operator first
+        if self._current_token() and self._current_token().type == TokenType.BETWEEN:
+            self._consume_token()  # consume BETWEEN
+            value1 = self._parse_value()
+            self._expect_token(TokenType.AND)  # consume AND
+            value2 = self._parse_value()
+            # For BETWEEN, we'll store it as a special condition
+            return Condition(column=column, operator="BETWEEN", value=(value1, value2))
+        
         # operator
         op_token = self._consume_token()
         if op_token.type not in [
@@ -666,6 +699,77 @@ class SQLParser:
             value = self._parse_value()
         
         return Condition(column=column, operator=operator, value=value)
+    
+    def _parse_column_expression(self) -> str:
+        """Parse a column expression (including aggregate functions)."""
+        # Check for aggregate functions
+        if self._current_token() and self._current_token().type in [
+            TokenType.COUNT, TokenType.SUM, TokenType.AVG, TokenType.MAX, TokenType.MIN
+        ]:
+            func_token = self._consume_token()
+            func_name = func_token.value.upper()
+            
+            self._expect_token(TokenType.LEFT_PAREN)
+            
+            # Check for DISTINCT keyword
+            distinct = False
+            if self._current_token() and self._current_token().type == TokenType.DISTINCT:
+                self._consume_token()  # consume DISTINCT
+                distinct = True
+            
+            # Parse function argument
+            if self._current_token() and self._current_token().type == TokenType.ASTERISK:
+                self._consume_token()  # consume *
+                arg = "*"
+            else:
+                # Handle table.column syntax in function arguments
+                arg_parts = []
+                arg_token = self._expect_token(TokenType.IDENTIFIER)
+                arg_parts.append(arg_token.value)
+                
+                # Check for table.column syntax
+                if self._current_token() and self._current_token().type == TokenType.DOT:
+                    self._consume_token()  # consume dot
+                    arg_token2 = self._expect_token(TokenType.IDENTIFIER)
+                    arg_parts.append(arg_token2.value)
+                    arg = ".".join(arg_parts)
+                else:
+                    arg = arg_parts[0]
+            
+            self._expect_token(TokenType.RIGHT_PAREN)
+            
+            if distinct:
+                column = f"{func_name}(DISTINCT {arg})"
+            else:
+                column = f"{func_name}({arg})"
+        else:
+            # Handle table.column syntax
+            col_parts = []
+            col_token = self._expect_token(TokenType.IDENTIFIER)
+            col_parts.append(col_token.value)
+            
+            # Check for table.column syntax
+            if self._current_token() and self._current_token().type == TokenType.DOT:
+                self._consume_token()  # consume dot
+                col_token2 = self._expect_token(TokenType.IDENTIFIER)
+                col_parts.append(col_token2.value)
+                column = ".".join(col_parts)
+            else:
+                column = col_parts[0]
+        
+        # Check for column alias (AS keyword or direct alias)
+        if self._current_token() and self._current_token().type == TokenType.AS:
+            self._consume_token()  # consume AS
+            alias_token = self._expect_token(TokenType.IDENTIFIER)
+            column = f"{column} AS {alias_token.value}"
+        elif (self._current_token() and 
+              self._current_token().type == TokenType.IDENTIFIER and
+              not self._current_token().value.upper() in ['FROM', 'WHERE', 'ORDER', 'GROUP', 'HAVING']):
+            # Direct alias without AS keyword
+            alias_token = self._consume_token()
+            column = f"{column} AS {alias_token.value}"
+        
+        return column
     
     def _parse_value(self) -> Any:
         """Parse a literal value."""
