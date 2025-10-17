@@ -579,29 +579,6 @@ The tests cover:
 - Query execution
 - Error handling
 
-##  Limitations
-
-CoreDB is a minimal implementation with some limitations:
-
-- No JOIN operations
-- Limited WHERE clause support (basic comparisons only)
-- No indexes or query optimization
-- No transactions or ACID properties
-- No concurrent access support
-- Limited data type validation
-
-##  Future Enhancements
-
-Potential improvements for CoreDB:
-
-- [ ] Advanced WHERE clause support (LIKE, IN, BETWEEN)
-- [ ] JOIN operations
-- [ ] Indexes for performance
-- [ ] Transaction support
-- [ ] Concurrent access
-- [ ] Query optimization
-- [ ] Additional data types
-- [ ] Backup and restore utilities
 
 ##  License
 

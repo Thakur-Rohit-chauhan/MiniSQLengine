@@ -180,15 +180,20 @@ class QueryExecutor:
         if stmt.joins:
             data = self._execute_join(stmt)
         else:
-            # Get data from single table
+            # Get data from single table (get all columns, we'll select specific ones later)
             data = self.storage.select_data(
                 table_name=stmt.table_name,
-                columns=stmt.columns if '*' not in stmt.columns else None
+                columns=None
             )
+            
+            # Apply table alias if specified
+            if stmt.table_alias:
+                data = self._apply_table_alias(data, stmt.table_alias)
             
             # Apply WHERE clause filtering
             if stmt.where_clause:
-                data = self._apply_where_clause(data, stmt.where_clause, stmt.table_name)
+                table_ref = stmt.table_alias if stmt.table_alias else stmt.table_name
+                data = self._apply_where_clause(data, stmt.where_clause, table_ref)
         
         # Apply DISTINCT if specified
         if stmt.distinct:
@@ -209,6 +214,11 @@ class QueryExecutor:
         # Apply LIMIT if specified
         if stmt.limit:
             data = data[:stmt.limit]
+        
+        # Apply column selection (this must be done last)
+        # Only apply if we didn't already do it in JOIN execution
+        if '*' not in stmt.columns and not stmt.joins:
+            data = self._select_columns(data, stmt.columns)
         
         return QueryResult(
             success=True,
@@ -666,26 +676,49 @@ class QueryExecutor:
         for row in data:
             selected_row = {}
             for col in columns:
-                if col in row:
-                    selected_row[col] = row[col]
-                else:
-                    # Handle table.column format
-                    for key, value in row.items():
-                        if key.endswith(f'.{col}') or key == col:
-                            selected_row[col] = value
-                            break
+                # Check if this column has an alias
+                if ' AS ' in col:
+                    # Extract the alias name and the actual column expression
+                    actual_col = col.split(' AS ')[0].strip()
+                    alias_name = col.split(' AS ')[1].strip()
+                    
+                    # Find the value for the actual column
+                    value = None
+                    if actual_col in row:
+                        value = row[actual_col]
                     else:
-                        # If column not found, it might be an aggregate function
-                        # Check if it's an aggregate function with alias
-                        if ' AS ' in col:
-                            # Extract the actual column expression
-                            actual_col = col.split(' AS ')[0].strip()
-                            if actual_col in row:
-                                selected_row[col] = row[actual_col]
-                        elif '(' in col and ')' in col:
-                            # This is an aggregate function without alias
-                            if col in row:
-                                selected_row[col] = row[col]
+                        # Handle table.column format
+                        for key, val in row.items():
+                            if key.endswith(f'.{actual_col}') or key == actual_col:
+                                value = val
+                                break
+                        else:
+                            # If not found with table prefix, try without
+                            if '.' in actual_col:
+                                col_name = actual_col.split('.')[-1]
+                                for key, val in row.items():
+                                    if key.endswith(f'.{col_name}') or key == col_name:
+                                        value = val
+                                        break
+                    
+                    # Use the alias name as the key in the result
+                    selected_row[alias_name] = value
+                else:
+                    # No alias, use the original column name
+                    if col in row:
+                        selected_row[col] = row[col]
+                    else:
+                        # Handle table.column format
+                        for key, value in row.items():
+                            if key.endswith(f'.{col}') or key == col:
+                                selected_row[col] = value
+                                break
+                        else:
+                            # If column not found, it might be an aggregate function
+                            if '(' in col and ')' in col:
+                                # This is an aggregate function without alias
+                                if col in row:
+                                    selected_row[col] = row[col]
             result.append(selected_row)
         
         return result
