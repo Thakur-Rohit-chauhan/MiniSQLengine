@@ -16,6 +16,18 @@ class DataType(Enum):
 
 
 @dataclass
+class ForeignKey:
+    """Represents a foreign key constraint."""
+    
+    column: str
+    referenced_table: str
+    referenced_column: str
+    
+    def __str__(self) -> str:
+        return f"FOREIGN KEY ({self.column}) REFERENCES {self.referenced_table}({self.referenced_column})"
+
+
+@dataclass
 class Column:
     """Represents a database column with name and type."""
     
@@ -23,6 +35,7 @@ class Column:
     data_type: DataType
     nullable: bool = True
     primary_key: bool = False
+    foreign_key: Optional['ForeignKey'] = None
     
     def __post_init__(self):
         """Validate column definition."""
@@ -69,21 +82,38 @@ class Column:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert column to dictionary for serialization."""
-        return {
+        result = {
             'name': self.name,
             'data_type': self.data_type.value,
             'nullable': self.nullable,
             'primary_key': self.primary_key
         }
+        if self.foreign_key:
+            result['foreign_key'] = {
+                'column': self.foreign_key.column,
+                'referenced_table': self.foreign_key.referenced_table,
+                'referenced_column': self.foreign_key.referenced_column
+            }
+        return result
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Column':
         """Create column from dictionary."""
+        foreign_key = None
+        if 'foreign_key' in data:
+            fk_data = data['foreign_key']
+            foreign_key = ForeignKey(
+                column=fk_data['column'],
+                referenced_table=fk_data['referenced_table'],
+                referenced_column=fk_data['referenced_column']
+            )
+        
         return cls(
             name=data['name'],
             data_type=DataType(data['data_type']),
             nullable=data.get('nullable', True),
-            primary_key=data.get('primary_key', False)
+            primary_key=data.get('primary_key', False),
+            foreign_key=foreign_key
         )
 
 

@@ -43,7 +43,8 @@ class CoreDBShell:
         
         while self.running:
             try:
-                # Get user input
+                # Get user input (support multiline)
+                sql_lines = []
                 line = input("coredb> ").strip()
                 
                 if not line:
@@ -56,8 +57,22 @@ class CoreDBShell:
                 if self._handle_special_commands(line):
                     continue
                 
+                # Check for multiline SQL (ends with backslash)
+                if line.endswith('\\'):
+                    sql_lines.append(line[:-1])  # Remove backslash
+                    while True:
+                        continuation = input("    -> ").strip()
+                        if continuation.endswith('\\'):
+                            sql_lines.append(continuation[:-1])
+                        else:
+                            sql_lines.append(continuation)
+                            break
+                    sql = ' '.join(sql_lines)
+                else:
+                    sql = line
+                
                 # Execute SQL
-                self._execute_sql(line)
+                self._execute_sql(sql)
                 
             except KeyboardInterrupt:
                 print("\nUse 'quit' to exit")
@@ -181,11 +196,15 @@ class CoreDBShell:
         help_text = """
 CoreDB Commands:
   SQL Statements:
-    CREATE TABLE table_name (col1 TYPE, col2 TYPE, ...)
+    CREATE TABLE table_name (col1 TYPE [PRIMARY KEY] [REFERENCES table(col)], ...)
     INSERT INTO table_name VALUES (val1, val2, ...)
     SELECT * FROM table_name [WHERE condition]
+    SELECT * FROM table1 JOIN table2 ON table1.id = table2.foreign_id
     UPDATE table_name SET col1=val1 [WHERE condition]
     DELETE FROM table_name [WHERE condition]
+  
+  JOIN Types:
+    INNER JOIN, LEFT JOIN, RIGHT JOIN, FULL OUTER JOIN
   
   Shell Commands:
     help          - Show this help
@@ -196,13 +215,19 @@ CoreDB Commands:
     load <file>   - Execute SQL from file
     quit/exit     - Exit the shell
   
+  Multiline Queries:
+    End lines with \\ to continue on next line
+  
   Data Types:
     INT, TEXT, FLOAT, BOOLEAN
   
   Examples:
-    CREATE TABLE users (id INT PRIMARY KEY, name TEXT, age INT);
-    INSERT INTO users VALUES (1, 'Alice', 25);
-    SELECT * FROM users WHERE age > 20;
+    CREATE TABLE users (id INT PRIMARY KEY, name TEXT);
+    CREATE TABLE orders (id INT PRIMARY KEY, user_id INT REFERENCES users(id));
+    SELECT u.name, o.id FROM users u JOIN orders o ON u.id = o.user_id;
+    SELECT * FROM users \\
+        WHERE age > 20 \\
+        ORDER BY name;
         """
         print(help_text)
     

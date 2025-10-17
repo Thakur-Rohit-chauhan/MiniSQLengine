@@ -104,12 +104,23 @@ class QueryExecutor:
         # Convert AST columns to Table columns
         columns = []
         for col_def in stmt.columns:
-            from .types import Column, DataType
+            from .types import Column, DataType, ForeignKey
+            
+            # Create foreign key if specified
+            foreign_key = None
+            if col_def.foreign_key:
+                foreign_key = ForeignKey(
+                    column=col_def.name,
+                    referenced_table=col_def.foreign_key.referenced_table,
+                    referenced_column=col_def.foreign_key.referenced_column
+                )
+            
             column = Column(
                 name=col_def.name,
                 data_type=col_def.data_type,
                 nullable=col_def.nullable,
-                primary_key=col_def.primary_key
+                primary_key=col_def.primary_key,
+                foreign_key=foreign_key
             )
             columns.append(column)
         
@@ -165,19 +176,23 @@ class QueryExecutor:
     
     def _execute_select(self, stmt: SelectStatement) -> QueryResult:
         """Execute SELECT statement."""
-        # Get data from storage
-        data = self.storage.select_data(
-            table_name=stmt.table_name,
-            columns=stmt.columns if '*' not in stmt.columns else None
-        )
-        
-        # Apply WHERE clause filtering
-        if stmt.where_clause:
-            data = self._apply_where_clause(data, stmt.where_clause, stmt.table_name)
+        # Handle JOINs if present
+        if stmt.joins:
+            data = self._execute_join(stmt)
+        else:
+            # Get data from single table
+            data = self.storage.select_data(
+                table_name=stmt.table_name,
+                columns=stmt.columns if '*' not in stmt.columns else None
+            )
+            
+            # Apply WHERE clause filtering
+            if stmt.where_clause:
+                data = self._apply_where_clause(data, stmt.where_clause, stmt.table_name)
         
         return QueryResult(
             success=True,
-            message=f"Selected {len(data)} row(s) from '{stmt.table_name}'",
+            message=f"Selected {len(data)} row(s)",
             data=data,
             affected_rows=len(data)
         )
@@ -351,3 +366,290 @@ class QueryExecutor:
     def table_exists(self, table_name: str) -> bool:
         """Check if a table exists."""
         return self.storage.table_exists(table_name)
+    
+    def _execute_join(self, stmt: SelectStatement) -> List[Dict[str, Any]]:
+        """
+        Execute a SELECT statement with JOINs.
+        
+        Args:
+            stmt: SELECT statement with JOINs
+            
+        Returns:
+            List of joined row dictionaries
+        """
+        # Get base table data
+        base_table = self.storage.get_table(stmt.table_name)
+        if not base_table:
+            raise TableNotFoundError(stmt.table_name)
+        
+        base_data = base_table.data.copy()
+        
+        # Apply table alias if specified
+        if stmt.table_alias:
+            base_data = self._apply_table_alias(base_data, stmt.table_alias)
+        
+        # Process each JOIN
+        for join in stmt.joins:
+            # Get joined table data
+            join_table = self.storage.get_table(join.table_name)
+            if not join_table:
+                raise TableNotFoundError(join.table_name)
+            
+            join_data = join_table.data.copy()
+            
+            # Apply table alias if specified
+            if join.alias:
+                join_data = self._apply_table_alias(join_data, join.alias)
+            
+            # Perform the join
+            base_data = self._perform_join(
+                base_data, join_data, join.join_type, join.on_condition
+            )
+        
+        # Apply WHERE clause filtering
+        if stmt.where_clause:
+            base_data = self._apply_where_clause(base_data, stmt.where_clause, stmt.table_name)
+        
+        # Select columns if specified
+        if stmt.columns and '*' not in stmt.columns:
+            base_data = self._select_columns(base_data, stmt.columns)
+        
+        return base_data
+    
+    def _apply_table_alias(self, data: List[Dict[str, Any]], alias: str) -> List[Dict[str, Any]]:
+        """
+        Apply table alias to column names.
+        
+        Args:
+            data: List of row dictionaries
+            alias: Table alias
+            
+        Returns:
+            Data with prefixed column names
+        """
+        aliased_data = []
+        for row in data:
+            aliased_row = {}
+            for col_name, value in row.items():
+                aliased_row[f"{alias}.{col_name}"] = value
+            aliased_data.append(aliased_row)
+        return aliased_data
+    
+    def _perform_join(self, left_data: List[Dict[str, Any]], right_data: List[Dict[str, Any]], 
+                     join_type: str, on_condition: Optional[Any]) -> List[Dict[str, Any]]:
+        """
+        Perform a JOIN operation between two datasets.
+        
+        Args:
+            left_data: Left table data
+            right_data: Right table data
+            join_type: Type of join (INNER, LEFT, RIGHT, FULL OUTER)
+            on_condition: JOIN condition
+            
+        Returns:
+            Joined data
+        """
+        if not on_condition:
+            # Cartesian product if no ON condition
+            result = []
+            for left_row in left_data:
+                for right_row in right_data:
+                    combined_row = {**left_row, **right_row}
+                    result.append(combined_row)
+            return result
+        
+        # Perform join based on condition
+        result = []
+        
+        if join_type.upper() in ['INNER', 'INNER JOIN']:
+            result = self._inner_join(left_data, right_data, on_condition)
+        elif join_type.upper() in ['LEFT', 'LEFT JOIN', 'LEFT OUTER', 'LEFT OUTER JOIN']:
+            result = self._left_join(left_data, right_data, on_condition)
+        elif join_type.upper() in ['RIGHT', 'RIGHT JOIN', 'RIGHT OUTER', 'RIGHT OUTER JOIN']:
+            result = self._right_join(left_data, right_data, on_condition)
+        elif join_type.upper() in ['FULL', 'FULL OUTER', 'FULL OUTER JOIN']:
+            result = self._full_outer_join(left_data, right_data, on_condition)
+        else:
+            # Default to INNER JOIN
+            result = self._inner_join(left_data, right_data, on_condition)
+        
+        return result
+    
+    def _inner_join(self, left_data: List[Dict[str, Any]], right_data: List[Dict[str, Any]], 
+                   on_condition: Any) -> List[Dict[str, Any]]:
+        """Perform INNER JOIN."""
+        result = []
+        for left_row in left_data:
+            for right_row in right_data:
+                if self._evaluate_join_condition(left_row, right_row, on_condition):
+                    combined_row = {**left_row, **right_row}
+                    result.append(combined_row)
+        return result
+    
+    def _left_join(self, left_data: List[Dict[str, Any]], right_data: List[Dict[str, Any]], 
+                  on_condition: Any) -> List[Dict[str, Any]]:
+        """Perform LEFT JOIN."""
+        result = []
+        for left_row in left_data:
+            matched = False
+            for right_row in right_data:
+                if self._evaluate_join_condition(left_row, right_row, on_condition):
+                    combined_row = {**left_row, **right_row}
+                    result.append(combined_row)
+                    matched = True
+            
+            # Add left row with NULL right values if no match
+            if not matched:
+                null_right_row = {col: None for col in right_data[0].keys() if right_data}
+                combined_row = {**left_row, **null_right_row}
+                result.append(combined_row)
+        
+        return result
+    
+    def _right_join(self, left_data: List[Dict[str, Any]], right_data: List[Dict[str, Any]], 
+                   on_condition: Any) -> List[Dict[str, Any]]:
+        """Perform RIGHT JOIN."""
+        result = []
+        for right_row in right_data:
+            matched = False
+            for left_row in left_data:
+                if self._evaluate_join_condition(left_row, right_row, on_condition):
+                    combined_row = {**left_row, **right_row}
+                    result.append(combined_row)
+                    matched = True
+            
+            # Add right row with NULL left values if no match
+            if not matched:
+                null_left_row = {col: None for col in left_data[0].keys() if left_data}
+                combined_row = {**null_left_row, **right_row}
+                result.append(combined_row)
+        
+        return result
+    
+    def _full_outer_join(self, left_data: List[Dict[str, Any]], right_data: List[Dict[str, Any]], 
+                        on_condition: Any) -> List[Dict[str, Any]]:
+        """Perform FULL OUTER JOIN."""
+        # Start with LEFT JOIN
+        result = self._left_join(left_data, right_data, on_condition)
+        
+        # Add unmatched right rows
+        for right_row in right_data:
+            matched = False
+            for left_row in left_data:
+                if self._evaluate_join_condition(left_row, right_row, on_condition):
+                    matched = True
+                    break
+            
+            if not matched:
+                null_left_row = {col: None for col in left_data[0].keys() if left_data}
+                combined_row = {**null_left_row, **right_row}
+                result.append(combined_row)
+        
+        return result
+    
+    def _evaluate_join_condition(self, left_row: Dict[str, Any], right_row: Dict[str, Any], 
+                               condition: Any) -> bool:
+        """
+        Evaluate a JOIN condition between two rows.
+        
+        Args:
+            left_row: Left table row
+            right_row: Right table row
+            condition: JOIN condition
+            
+        Returns:
+            True if condition is satisfied
+        """
+        # Handle table.column syntax in JOIN conditions
+        # Format: "table1.column1 = table2.column2"
+        
+        # Split the condition into left and right parts
+        if condition.operator == '=':
+            # For JOIN conditions, we need to match left.column with right.column
+            left_col = condition.column
+            right_col = condition.value
+            
+            # Get values from appropriate rows
+            left_value = None
+            right_value = None
+            
+            # Handle left side (table.column)
+            if '.' in left_col:
+                parts = left_col.split('.')
+                if len(parts) == 2:
+                    table_name, col_name = parts
+                    # Check if this table alias matches our left row
+                    if any(key.startswith(f"{table_name}.") for key in left_row.keys()):
+                        left_value = left_row.get(f"{table_name}.{col_name}")
+                    elif col_name in left_row:
+                        left_value = left_row.get(col_name)
+            else:
+                left_value = left_row.get(left_col)
+            
+            # Handle right side (table.column)
+            if '.' in right_col:
+                parts = right_col.split('.')
+                if len(parts) == 2:
+                    table_name, col_name = parts
+                    # Check if this table alias matches our right row
+                    if any(key.startswith(f"{table_name}.") for key in right_row.keys()):
+                        right_value = right_row.get(f"{table_name}.{col_name}")
+                    elif col_name in right_row:
+                        right_value = right_row.get(col_name)
+            else:
+                right_value = right_row.get(right_col)
+            
+            # Perform comparison
+            return left_value == right_value
+        
+        # For other operators, use the original logic
+        left_value = left_row.get(condition.column)
+        right_value = right_row.get(condition.value)
+        
+        if condition.operator == '!=':
+            return left_value != right_value
+        else:
+            # For other operators, try to compare
+            try:
+                if condition.operator == '<':
+                    return left_value < right_value
+                elif condition.operator == '>':
+                    return left_value > right_value
+                elif condition.operator == '<=':
+                    return left_value <= right_value
+                elif condition.operator == '>=':
+                    return left_value >= right_value
+            except TypeError:
+                return False
+        
+        return False
+    
+    def _select_columns(self, data: List[Dict[str, Any]], columns: List[str]) -> List[Dict[str, Any]]:
+        """
+        Select specific columns from data.
+        
+        Args:
+            data: List of row dictionaries
+            columns: List of column names to select
+            
+        Returns:
+            Data with only selected columns
+        """
+        if not data:
+            return data
+        
+        result = []
+        for row in data:
+            selected_row = {}
+            for col in columns:
+                if col in row:
+                    selected_row[col] = row[col]
+                else:
+                    # Handle table.column format
+                    for key, value in row.items():
+                        if key.endswith(f'.{col}') or key == col:
+                            selected_row[col] = value
+                            break
+            result.append(selected_row)
+        
+        return result

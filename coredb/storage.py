@@ -185,6 +185,8 @@ class StorageManager:
         inserted_count = 0
         for row in rows:
             try:
+                # Validate foreign key constraints
+                self._validate_foreign_keys(table, row)
                 table.insert_row(row)
                 inserted_count += 1
             except ValueError as e:
@@ -400,3 +402,53 @@ class StorageManager:
             
         except (OSError, IOError) as e:
             raise StorageError(f"Failed to restore backup: {e}")
+    
+    def _validate_foreign_keys(self, table: Table, row: Dict[str, Any]) -> None:
+        """
+        Validate foreign key constraints for a row.
+        
+        Args:
+            table: Table being inserted into
+            row: Row data to validate
+            
+        Raises:
+            StorageError: If foreign key constraint is violated
+        """
+        for col in table.columns:
+            if col.foreign_key and col.name in row:
+                fk_value = row[col.name]
+                
+                # Skip NULL values (they're allowed unless column is NOT NULL)
+                if fk_value is None:
+                    continue
+                
+                # Check if referenced table exists
+                ref_table = self.get_table(col.foreign_key.referenced_table)
+                if not ref_table:
+                    raise StorageError(
+                        f"Foreign key constraint violation: Referenced table "
+                        f"'{col.foreign_key.referenced_table}' not found"
+                    )
+                
+                # Check if referenced column exists
+                ref_col = ref_table.get_column(col.foreign_key.referenced_column)
+                if not ref_col:
+                    raise StorageError(
+                        f"Foreign key constraint violation: Referenced column "
+                        f"'{col.foreign_key.referenced_column}' not found in table "
+                        f"'{col.foreign_key.referenced_table}'"
+                    )
+                
+                # Check if the foreign key value exists in the referenced table
+                found = False
+                for ref_row in ref_table.data:
+                    if ref_row.get(ref_col.name) == fk_value:
+                        found = True
+                        break
+                
+                if not found:
+                    raise StorageError(
+                        f"Foreign key constraint violation: Value '{fk_value}' not found "
+                        f"in referenced table '{col.foreign_key.referenced_table}' "
+                        f"column '{col.foreign_key.referenced_column}'"
+                    )

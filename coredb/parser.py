@@ -30,11 +30,24 @@ class ColumnDefinition(ASTNode):
     data_type: DataType
     nullable: bool = True
     primary_key: bool = False
+    foreign_key: Optional['ForeignKeyDefinition'] = None
     
     def __str__(self) -> str:
         pk_str = " PRIMARY KEY" if self.primary_key else ""
         null_str = "" if self.nullable else " NOT NULL"
-        return f"{self.name} {self.data_type.value}{pk_str}{null_str}"
+        fk_str = f" {self.foreign_key}" if self.foreign_key else ""
+        return f"{self.name} {self.data_type.value}{pk_str}{null_str}{fk_str}"
+
+
+@dataclass
+class ForeignKeyDefinition(ASTNode):
+    """Represents a foreign key definition in CREATE TABLE."""
+    
+    referenced_table: str
+    referenced_column: str
+    
+    def __str__(self) -> str:
+        return f"REFERENCES {self.referenced_table}({self.referenced_column})"
 
 
 @dataclass
@@ -64,21 +77,44 @@ class InsertStatement(ASTNode):
 
 
 @dataclass
+class JoinClause(ASTNode):
+    """Represents a JOIN clause."""
+    
+    join_type: str  # 'INNER', 'LEFT', 'RIGHT', 'FULL'
+    table_name: str
+    alias: Optional[str] = None
+    on_condition: Optional['Condition'] = None
+    
+    def __str__(self) -> str:
+        alias_str = f" AS {self.alias}" if self.alias else ""
+        on_str = f" ON {self.on_condition}" if self.on_condition else ""
+        return f"{self.join_type} JOIN {self.table_name}{alias_str}{on_str}"
+
+
+@dataclass
 class SelectStatement(ASTNode):
     """Represents a SELECT statement."""
     
     columns: List[str]  # ['*'] for SELECT *
     table_name: str
+    table_alias: Optional[str] = None
+    joins: List[JoinClause] = None
     where_clause: Optional['WhereClause'] = None
     order_by: Optional[str] = None
     limit: Optional[int] = None
     
+    def __post_init__(self):
+        if self.joins is None:
+            self.joins = []
+    
     def __str__(self) -> str:
         cols_str = ", ".join(self.columns)
+        alias_str = f" AS {self.table_alias}" if self.table_alias else ""
+        joins_str = " ".join(str(join) for join in self.joins)
         where_str = f" WHERE {self.where_clause}" if self.where_clause else ""
         order_str = f" ORDER BY {self.order_by}" if self.order_by else ""
         limit_str = f" LIMIT {self.limit}" if self.limit else ""
-        return f"SELECT {cols_str} FROM {self.table_name}{where_str}{order_str}{limit_str}"
+        return f"SELECT {cols_str} FROM {self.table_name}{alias_str} {joins_str}{where_str}{order_str}{limit_str}"
 
 
 @dataclass
@@ -260,9 +296,10 @@ class SQLParser:
             # Optional constraints
             nullable = True
             primary_key = False
+            foreign_key = None
             
             while self._current_token() and self._current_token().type in [
-                TokenType.IDENTIFIER, TokenType.NOT
+                TokenType.IDENTIFIER, TokenType.NOT, TokenType.REFERENCES
             ]:
                 token = self._consume_token()
                 if token.value.upper() == 'PRIMARY' and self._current_token() and self._current_token().value.upper() == 'KEY':
@@ -271,12 +308,24 @@ class SQLParser:
                 elif token.value.upper() == 'NOT' and self._current_token() and self._current_token().value.upper() == 'NULL':
                     self._consume_token()  # consume 'NULL'
                     nullable = False
+                elif token.type == TokenType.REFERENCES:
+                    # Parse foreign key: REFERENCES table(column)
+                    ref_table_token = self._expect_token(TokenType.IDENTIFIER)
+                    self._expect_token(TokenType.LEFT_PAREN)
+                    ref_col_token = self._expect_token(TokenType.IDENTIFIER)
+                    self._expect_token(TokenType.RIGHT_PAREN)
+                    foreign_key = ForeignKeyDefinition(
+                        referenced_table=ref_table_token.value,
+                        referenced_column=ref_col_token.value
+                    )
+                    break  # Foreign key is always last constraint
             
             columns.append(ColumnDefinition(
                 name=col_name,
                 data_type=data_type,
                 nullable=nullable,
-                primary_key=primary_key
+                primary_key=primary_key,
+                foreign_key=foreign_key
             ))
             
             # Check for comma or closing parenthesis
@@ -367,8 +416,33 @@ class SQLParser:
             columns = ['*']
         else:
             while True:
+                # Handle table.column syntax
+                col_parts = []
                 col_token = self._expect_token(TokenType.IDENTIFIER)
-                columns.append(col_token.value)
+                col_parts.append(col_token.value)
+                
+                # Check for table.column syntax
+                if self._current_token() and self._current_token().type == TokenType.DOT:
+                    self._consume_token()  # consume dot
+                    col_token2 = self._expect_token(TokenType.IDENTIFIER)
+                    col_parts.append(col_token2.value)
+                    column = ".".join(col_parts)
+                else:
+                    column = col_parts[0]
+                
+                # Check for column alias (AS keyword or direct alias)
+                if self._current_token() and self._current_token().type == TokenType.AS:
+                    self._consume_token()  # consume AS
+                    alias_token = self._expect_token(TokenType.IDENTIFIER)
+                    column = f"{column} AS {alias_token.value}"
+                elif (self._current_token() and 
+                      self._current_token().type == TokenType.IDENTIFIER and
+                      not self._current_token().value.upper() in ['FROM', 'WHERE', 'ORDER', 'GROUP', 'HAVING']):
+                    # Direct alias without AS keyword
+                    alias_token = self._consume_token()
+                    column = f"{column} AS {alias_token.value}"
+                
+                columns.append(column)
                 
                 if self._current_token() and self._current_token().type == TokenType.COMMA:
                     self._consume_token()  # consume comma
@@ -382,6 +456,25 @@ class SQLParser:
         table_name_token = self._expect_token(TokenType.IDENTIFIER)
         table_name = table_name_token.value
         
+        # Optional table alias
+        table_alias = None
+        if self._current_token() and self._current_token().type == TokenType.AS:
+            self._consume_token()  # consume AS
+            alias_token = self._expect_token(TokenType.IDENTIFIER)
+            table_alias = alias_token.value
+        elif self._current_token() and self._current_token().type == TokenType.IDENTIFIER:
+            # Alias without AS keyword
+            alias_token = self._consume_token()
+            table_alias = alias_token.value
+        
+        # Parse JOINs
+        joins = []
+        while self._current_token() and self._current_token().type in [
+            TokenType.JOIN, TokenType.INNER, TokenType.LEFT, TokenType.RIGHT, TokenType.FULL
+        ]:
+            join_clause = self._parse_join_clause()
+            joins.append(join_clause)
+        
         # Optional WHERE clause
         where_clause = None
         if self._current_token() and self._current_token().type == TokenType.WHERE:
@@ -390,6 +483,8 @@ class SQLParser:
         return SelectStatement(
             columns=columns,
             table_name=table_name,
+            table_alias=table_alias,
+            joins=joins,
             where_clause=where_clause
         )
     
@@ -455,6 +550,53 @@ class SQLParser:
             where_clause=where_clause
         )
     
+    def _parse_join_clause(self) -> JoinClause:
+        """Parse a JOIN clause."""
+        # Determine join type
+        join_type = "INNER"  # default
+        
+        if self._current_token() and self._current_token().type in [
+            TokenType.INNER, TokenType.LEFT, TokenType.RIGHT, TokenType.FULL
+        ]:
+            type_token = self._consume_token()
+            join_type = type_token.value.upper()
+            
+            # Handle FULL OUTER JOIN
+            if join_type == "FULL" and self._current_token() and self._current_token().type == TokenType.OUTER:
+                self._consume_token()  # consume OUTER
+                join_type = "FULL OUTER"
+        
+        # JOIN
+        self._expect_token(TokenType.JOIN)
+        
+        # table_name
+        table_name_token = self._expect_token(TokenType.IDENTIFIER)
+        table_name = table_name_token.value
+        
+        # Optional table alias
+        alias = None
+        if self._current_token() and self._current_token().type == TokenType.AS:
+            self._consume_token()  # consume AS
+            alias_token = self._expect_token(TokenType.IDENTIFIER)
+            alias = alias_token.value
+        elif self._current_token() and self._current_token().type == TokenType.IDENTIFIER:
+            # Alias without AS keyword
+            alias_token = self._consume_token()
+            alias = alias_token.value
+        
+        # Optional ON condition
+        on_condition = None
+        if self._current_token() and self._current_token().type == TokenType.ON:
+            self._consume_token()  # consume ON
+            on_condition = self._parse_condition()
+        
+        return JoinClause(
+            join_type=join_type,
+            table_name=table_name,
+            alias=alias,
+            on_condition=on_condition
+        )
+    
     def _parse_where_clause(self) -> WhereClause:
         """Parse WHERE clause."""
         # WHERE
@@ -476,9 +618,19 @@ class SQLParser:
     
     def _parse_condition(self) -> Condition:
         """Parse a single condition."""
-        # column
+        # column (may be table.column)
+        column_parts = []
         col_token = self._expect_token(TokenType.IDENTIFIER)
-        column = col_token.value
+        column_parts.append(col_token.value)
+        
+        # Check for table.column syntax
+        if self._current_token() and self._current_token().type == TokenType.DOT:
+            self._consume_token()  # consume dot
+            col_token2 = self._expect_token(TokenType.IDENTIFIER)
+            column_parts.append(col_token2.value)
+            column = ".".join(column_parts)
+        else:
+            column = column_parts[0]
         
         # operator
         op_token = self._consume_token()
@@ -492,8 +644,26 @@ class SQLParser:
             )
         operator = op_token.value
         
-        # value
-        value = self._parse_value()
+        # value (may be table.column)
+        if self._current_token() and self._current_token().type == TokenType.IDENTIFIER:
+            # Check if this is a table.column reference
+            peek_token = self.tokens[self.position + 1] if self.position + 1 < len(self.tokens) else None
+            if peek_token and peek_token.type == TokenType.DOT:
+                # This is table.column syntax
+                value_parts = []
+                value_token = self._consume_token()
+                value_parts.append(value_token.value)
+                self._consume_token()  # consume dot
+                value_token2 = self._expect_token(TokenType.IDENTIFIER)
+                value_parts.append(value_token2.value)
+                value = ".".join(value_parts)
+            else:
+                # Regular identifier
+                value_token = self._consume_token()
+                value = value_token.value
+        else:
+            # Regular value
+            value = self._parse_value()
         
         return Condition(column=column, operator=operator, value=value)
     

@@ -29,6 +29,15 @@ class TokenType(Enum):
     DELETE = "DELETE"
     DROP = "DROP"
     ALTER = "ALTER"
+    JOIN = "JOIN"
+    INNER = "INNER"
+    LEFT = "LEFT"
+    RIGHT = "RIGHT"
+    FULL = "FULL"
+    OUTER = "OUTER"
+    ON = "ON"
+    AS = "AS"
+    REFERENCES = "REFERENCES"
     
     # Data types
     INT = "INT"
@@ -107,6 +116,15 @@ class SQLTokenizer:
         'DELETE': TokenType.DELETE,
         'DROP': TokenType.DROP,
         'ALTER': TokenType.ALTER,
+        'JOIN': TokenType.JOIN,
+        'INNER': TokenType.INNER,
+        'LEFT': TokenType.LEFT,
+        'RIGHT': TokenType.RIGHT,
+        'FULL': TokenType.FULL,
+        'OUTER': TokenType.OUTER,
+        'ON': TokenType.ON,
+        'AS': TokenType.AS,
+        'REFERENCES': TokenType.REFERENCES,
         'INT': TokenType.INT,
         'TEXT': TokenType.TEXT,
         'FLOAT': TokenType.FLOAT,
