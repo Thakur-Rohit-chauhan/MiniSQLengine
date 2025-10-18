@@ -80,7 +80,7 @@ Thumbs.db
 coredb_data/
 demo_data/
 test_db/
-*.json
+
 newFeatures.txt
 
 # Logs
