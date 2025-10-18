@@ -4,13 +4,13 @@ A modern React frontend for the Mini SQL Playground, featuring Monaco Editor for
 
 ## Features
 
-- ** Monaco Editor**: Professional SQL editor with syntax highlighting and autocomplete
-- ** Query Execution**: Execute SQL queries with real-time results
-- ** Result Tables**: Beautiful, responsive tables for query results
-- ** Query History**: Track and replay previous queries
-- ** Real-time Feedback**: Execution time and success/error indicators
-- ** Modern UI**: Clean, responsive design with dark theme support
-- ** Mobile Friendly**: Responsive design for all screen sizes
+- **Monaco Editor**: Professional SQL editor with syntax highlighting and autocomplete
+- **Query Execution**: Execute SQL queries with real-time results
+- **Result Tables**: Beautiful, responsive tables for query results
+- **Query History**: Track and replay previous queries
+- **Real-time Feedback**: Execution time and success/error indicators
+- **Modern UI**: Clean, responsive design with dark theme support
+- **Mobile Friendly**: Responsive design for all screen sizes
 
 ## Quick Start
 
