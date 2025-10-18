@@ -1,0 +1,23 @@
+# Mini SQL Playground Backend Requirements
+
+# FastAPI and ASGI server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Pydantic for data validation (compatible with Python 3.13)
+pydantic>=2.6.0
+pydantic-settings>=2.1.0
+
+# Additional dependencies
+python-multipart==0.0.6
+
+# Development dependencies
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+
+# Optional: For enhanced logging
+structlog==23.2.0
+
+# Optional: For environment management
+python-dotenv==1.0.0

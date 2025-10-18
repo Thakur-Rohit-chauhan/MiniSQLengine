@@ -18,6 +18,7 @@ class TokenType(Enum):
     # Keywords
     CREATE = "CREATE"
     TABLE = "TABLE"
+    DROP = "DROP"
     INSERT = "INSERT"
     INTO = "INTO"
     VALUES = "VALUES"
@@ -27,7 +28,6 @@ class TokenType(Enum):
     UPDATE = "UPDATE"
     SET = "SET"
     DELETE = "DELETE"
-    DROP = "DROP"
     ALTER = "ALTER"
     JOIN = "JOIN"
     INNER = "INNER"

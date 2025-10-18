@@ -150,6 +150,16 @@ class DeleteStatement(ASTNode):
 
 
 @dataclass
+class DropTableStatement(ASTNode):
+    """Represents a DROP TABLE statement."""
+    
+    table_name: str
+    
+    def __str__(self) -> str:
+        return f"DROP TABLE {self.table_name}"
+
+
+@dataclass
 class WhereClause(ASTNode):
     """Represents a WHERE clause with conditions."""
     
@@ -226,6 +236,8 @@ class SQLParser:
             return self._parse_update()
         elif first_token.type == TokenType.DELETE:
             return self._parse_delete()
+        elif first_token.type == TokenType.DROP:
+            return self._parse_drop_table()
         else:
             raise SQLSyntaxError(
                 f"Unexpected token: {first_token.type.value}",
@@ -573,6 +585,20 @@ class SQLParser:
             table_name=table_name,
             where_clause=where_clause
         )
+    
+    def _parse_drop_table(self) -> DropTableStatement:
+        """Parse DROP TABLE statement."""
+        # DROP
+        self._expect_token(TokenType.DROP)
+        
+        # TABLE
+        self._expect_token(TokenType.TABLE)
+        
+        # table_name
+        table_name_token = self._expect_token(TokenType.IDENTIFIER)
+        table_name = table_name_token.value
+        
+        return DropTableStatement(table_name=table_name)
     
     def _parse_join_clause(self) -> JoinClause:
         """Parse a JOIN clause."""

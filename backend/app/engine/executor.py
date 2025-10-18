@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from .parser import (
     ASTNode, CreateTableStatement, InsertStatement, SelectStatement,
-    UpdateStatement, DeleteStatement, WhereClause, Condition
+    UpdateStatement, DeleteStatement, DropTableStatement, WhereClause, Condition
 )
 from .storage import StorageManager
 from .types import Table, Column
@@ -77,6 +77,8 @@ class QueryExecutor:
                 result = self._execute_update(ast_node)
             elif isinstance(ast_node, DeleteStatement):
                 result = self._execute_delete(ast_node)
+            elif isinstance(ast_node, DropTableStatement):
+                result = self._execute_drop_table(ast_node)
             else:
                 result = QueryResult(
                     success=False,
@@ -255,6 +257,21 @@ class QueryExecutor:
             message=f"Deleted {affected_rows} row(s) from '{stmt.table_name}'",
             affected_rows=affected_rows
         )
+    
+    def _execute_drop_table(self, stmt: DropTableStatement) -> QueryResult:
+        """Execute DROP TABLE statement."""
+        try:
+            self.storage.drop_table(stmt.table_name)
+            return QueryResult(
+                success=True,
+                message=f"Table '{stmt.table_name}' dropped successfully",
+                affected_rows=0
+            )
+        except Exception as e:
+            return QueryResult(
+                success=False,
+                message=f"Failed to drop table '{stmt.table_name}': {str(e)}"
+            )
     
     def _apply_where_clause(self, data: List[Dict[str, Any]], 
                           where_clause: WhereClause, table_name: str) -> List[Dict[str, Any]]:

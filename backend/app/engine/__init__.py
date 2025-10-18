@@ -5,8 +5,9 @@ This package provides a simple but functional SQL database management system
 that supports basic SQL operations like CREATE TABLE, INSERT, SELECT, UPDATE, and DELETE.
 """
 
-__version__ = "0.1.0"
-__author__ = "CoreDB Team"
+__version__ = "1.0.1"
+__author__ = "Rohit Chauhan"
+
 
 from .types import Column, Table, Schema
 from .storage import StorageManager

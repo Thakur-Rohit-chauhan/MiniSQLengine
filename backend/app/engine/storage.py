@@ -262,15 +262,16 @@ class StorageManager:
         # Update rows
         updated_count = 0
         for row in table.data:
-            # For now, update all rows (WHERE clause not implemented)
-            for col_name, new_value in set_clause.items():
-                col = table.get_column(col_name)
-                if col:
-                    try:
-                        row[col_name] = col.validate_value(new_value)
-                        updated_count += 1
-                    except ValueError as e:
-                        raise StorageError(f"Failed to update column '{col_name}': {e}")
+            # Check WHERE clause if provided
+            if where_clause is None or self._evaluate_where_clause(row, where_clause, table_name):
+                for col_name, new_value in set_clause.items():
+                    col = table.get_column(col_name)
+                    if col:
+                        try:
+                            row[col_name] = col.validate_value(new_value)
+                            updated_count += 1
+                        except ValueError as e:
+                            raise StorageError(f"Failed to update column '{col_name}': {e}")
         
         # Save updated data
         self._save_table_data(table_name, table.data)
@@ -295,9 +296,21 @@ class StorageManager:
         if not table:
             raise TableNotFoundError(table_name)
         
-        # For now, delete all rows (WHERE clause not implemented)
-        deleted_count = len(table.data)
-        table.data.clear()
+        # Delete rows based on WHERE clause
+        if where_clause is None:
+            # Delete all rows
+            deleted_count = len(table.data)
+            table.data.clear()
+        else:
+            # Delete rows that match WHERE clause
+            deleted_count = 0
+            rows_to_keep = []
+            for row in table.data:
+                if self._evaluate_where_clause(row, where_clause, table_name):
+                    deleted_count += 1
+                else:
+                    rows_to_keep.append(row)
+            table.data = rows_to_keep
         
         # Save updated data
         self._save_table_data(table_name, table.data)
@@ -307,6 +320,30 @@ class StorageManager:
     def get_table_names(self) -> List[str]:
         """Get list of all table names."""
         return list(self.schema.tables.keys())
+    
+    def drop_table(self, table_name: str) -> None:
+        """
+        Drop a table from the database.
+        
+        Args:
+            table_name: Name of table to drop
+            
+        Raises:
+            TableNotFoundError: If table doesn't exist
+        """
+        if not self.table_exists(table_name):
+            raise TableNotFoundError(table_name)
+        
+        # Remove table from schema
+        del self.schema.tables[table_name]
+        
+        # Remove table data file
+        table_file = self.db_path / f"{table_name}.json"
+        if table_file.exists():
+            table_file.unlink()
+        
+        # Save updated schema
+        self._save_schema()
     
     def table_exists(self, table_name: str) -> bool:
         """Check if a table exists."""
@@ -452,3 +489,100 @@ class StorageManager:
                         f"in referenced table '{col.foreign_key.referenced_table}' "
                         f"column '{col.foreign_key.referenced_column}'"
                     )
+    
+    def _evaluate_where_clause(self, row: Dict[str, Any], where_clause: Any, table_name: str) -> bool:
+        """
+        Evaluate WHERE clause conditions for a single row.
+        
+        Args:
+            row: Row data dictionary
+            where_clause: WHERE clause AST node
+            table_name: Name of the table
+            
+        Returns:
+            True if row matches WHERE clause conditions
+        """
+        from .parser import WhereClause, Condition
+        
+        if not isinstance(where_clause, WhereClause):
+            return True
+        
+        # Evaluate all conditions
+        results = []
+        for condition in where_clause.conditions:
+            results.append(self._evaluate_condition(row, condition, table_name))
+        
+        # Apply operators between conditions
+        if not results:
+            return True
+        
+        final_result = results[0]
+        for i, operator in enumerate(where_clause.operators):
+            if i + 1 < len(results):
+                if operator.upper() == 'AND':
+                    final_result = final_result and results[i + 1]
+                elif operator.upper() == 'OR':
+                    final_result = final_result or results[i + 1]
+        
+        return final_result
+    
+    def _evaluate_condition(self, row: Dict[str, Any], condition: Any, table_name: str) -> bool:
+        """
+        Evaluate a single condition for a row.
+        
+        Args:
+            row: Row data dictionary
+            condition: Condition AST node
+            table_name: Name of the table
+            
+        Returns:
+            True if condition is satisfied
+        """
+        from .parser import Condition
+        
+        if not isinstance(condition, Condition):
+            return True
+        
+        # Get column value
+        column_value = row.get(condition.column)
+        
+        # Get condition value
+        if isinstance(condition.value, str) and '.' in condition.value:
+            # This is a table.column reference - for now, just use the value as is
+            condition_value = condition.value
+        else:
+            condition_value = condition.value
+        
+        # Handle NULL comparisons
+        if column_value is None or condition_value is None:
+            if condition.operator == '=':
+                return column_value is None and condition_value is None
+            elif condition.operator == '!=':
+                return column_value is not None or condition_value is not None
+            else:
+                # Other operators with NULL always return False
+                return False
+        
+        # Perform comparison
+        try:
+            if condition.operator == '=':
+                return column_value == condition_value
+            elif condition.operator == '!=':
+                return column_value != condition_value
+            elif condition.operator == '<':
+                return column_value < condition_value
+            elif condition.operator == '>':
+                return column_value > condition_value
+            elif condition.operator == '<=':
+                return column_value <= condition_value
+            elif condition.operator == '>=':
+                return column_value >= condition_value
+            elif condition.operator == 'BETWEEN':
+                # Handle BETWEEN operator
+                value1, value2 = condition_value
+                return value1 <= column_value <= value2
+            else:
+                return False
+        
+        except TypeError:
+            return False
