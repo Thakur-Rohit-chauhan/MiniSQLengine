@@ -350,6 +350,18 @@ WHERE customer_id IN (
 );
 ```
 
+#### DROP TABLE
+```sql
+-- Drop a table completely
+DROP TABLE order_items;
+
+-- Drop table with foreign key references
+DROP TABLE orders;
+
+-- Drop table that doesn't exist (will show error)
+DROP TABLE non_existent_table;
+```
+
 ### WHERE Clause Conditions
 - `=`, `!=`, `<`, `>`, `<=`, `>=`
 - `AND`, `OR` operators
@@ -590,4 +602,4 @@ This is a learning project, but suggestions and improvements are welcome!
 
 ---
 
-**CoreDB v0.1.0** - Built with ❤️ in Python by Arnav Sharda(123cs0064) Rohit Chauhan(123cs0054)
+**CoreDB v1.0.1** - Built with ❤️ in Python by Rohit Chauhan(123cs0054)
