@@ -502,7 +502,7 @@ class StorageManager:
         Returns:
             True if row matches WHERE clause conditions
         """
-        from coredb.parser import WhereClause, Condition
+        from .parser import WhereClause, Condition
         
         if not isinstance(where_clause, WhereClause):
             return True
@@ -538,7 +538,7 @@ class StorageManager:
         Returns:
             True if condition is satisfied
         """
-        from coredb.parser import Condition
+        from .parser import Condition
         
         if not isinstance(condition, Condition):
             return True
