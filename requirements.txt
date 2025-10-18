@@ -1,2 +1,0 @@
-# CoreDB - A minimal SQL database engine
-# No external dependencies required - uses only Python standard library
