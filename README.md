@@ -2,13 +2,13 @@
 
 A complete full-stack SQL playground application with a FastAPI backend and React frontend, featuring Monaco Editor for SQL editing, real-time query execution, and comprehensive result visualization.
 
-## 🚀 Project Overview
+## Project Overview
 
 This project consists of two main components:
 - **Backend**: FastAPI-based REST API with CoreDB SQL engine
 - **Frontend**: React application with Monaco Editor integration
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 CoreDB/
@@ -45,7 +45,7 @@ CoreDB/
 └── README.md                  # This file
 ```
 
-## ✨ Features
+## Features
 
 ### Backend Features
 - **FastAPI Framework**: Modern, fast web framework with automatic API documentation
@@ -72,7 +72,7 @@ CoreDB/
 - **Constraints**: Primary keys, foreign keys, NOT NULL
 - **Query Types**: Simple queries, complex JOINs, aggregations
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.11+
@@ -125,7 +125,7 @@ The backend will be available at `http://localhost:8000`
 
 The frontend will be available at `http://localhost:3000`
 
-## 🔧 API Endpoints
+## API Endpoints
 
 ### Backend API (http://localhost:8000)
 
@@ -152,7 +152,7 @@ curl "http://localhost:8000/api/v1/history?session_id=test"
 curl -X POST "http://localhost:8000/api/v1/reset"
 ```
 
-## 🎯 Usage Examples
+## Usage Examples
 
 ### Creating Tables
 ```sql
@@ -210,7 +210,7 @@ DELETE FROM users WHERE age < 18;
 DROP TABLE orders;
 ```
 
-## 🧪 Testing
+## Testing
 
 ### Backend Tests
 ```bash
@@ -232,7 +232,7 @@ Both servers must be running for full integration testing:
 3. Open `http://localhost:3000` in browser
 4. Test SQL queries in the Monaco Editor
 
-## 🐳 Docker Support
+## Docker Support
 
 ### Backend Docker
 ```bash
@@ -248,7 +248,7 @@ docker build -t mini-sql-playground-frontend .
 docker run -p 3000:3000 mini-sql-playground-frontend
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Backend Configuration
 Edit `backend/app/config.py`:
@@ -271,7 +271,7 @@ export const config = {
 };
 ```
 
-## 📊 Performance
+## Performance
 
 - **Backend**: Handles 100+ concurrent requests
 - **Frontend**: Smooth 60fps interactions
@@ -279,14 +279,14 @@ export const config = {
 - **Memory Usage**: Efficient in-memory processing
 - **Response Time**: < 100ms for most operations
 
-## 🔒 Security
+## Security
 
 - **Input Validation**: All inputs validated with Pydantic
 - **CORS Configuration**: Configurable allowed origins
 - **Error Sanitization**: Sensitive information not exposed
 - **Query Limits**: Maximum query length and result limits
 
-## 🚀 Deployment
+## Deployment
 
 ### Production Deployment
 
@@ -320,7 +320,7 @@ REACT_APP_API_BASE_URL=http://localhost:8000
 GENERATE_SOURCEMAP=false
 ```
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -332,20 +332,10 @@ GENERATE_SOURCEMAP=false
 
 This project is licensed under the MIT License.
 
-## 🆘 Support
+## Support
 
 For issues and questions:
 1. Check the API documentation at `http://localhost:8000/docs`
 2. Review the README files in backend/ and frontend/ directories
 3. Open an issue on GitHub
 
-## 🎉 Success!
-
-You now have a complete full-stack SQL playground application! 
-
-- **Backend**: FastAPI server running on port 8000
-- **Frontend**: React app running on port 3000
-- **Integration**: Both components working together seamlessly
-- **Features**: Complete SQL support with modern UI
-
-Enjoy exploring SQL with your new playground! 🚀
