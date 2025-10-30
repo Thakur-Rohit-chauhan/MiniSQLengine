@@ -135,7 +135,6 @@ flowchart TD
             L --> P --> E --> S
         end
     end
-yaml
 ```
 ## Features
 
