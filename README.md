@@ -44,6 +44,49 @@ CoreDB/
 │   └── README.md              # Frontend documentation
 └── README.md                  # This file
 ```
+```mermaid
+graph TD
+    A[CoreDB/] --> B[backend/]
+    A --> C[frontend/]
+    A --> D[README.md]
+
+    %% Backend
+    B --> B1[app/]
+    B --> B2[tests/]
+    B --> B3[requirements.txt]
+    B --> B4[Dockerfile]
+    B --> B5[start.sh]
+    B --> B6[README.md]
+
+    B1 --> B11[main.py]
+    B1 --> B12[config.py]
+    B1 --> B13[schemas.py]
+    B1 --> B14[api/]
+    B1 --> B15[engine/]
+
+    B14 --> B141[execute.py]
+
+    B15 --> B151[lexer.py]
+    B15 --> B152[parser.py]
+    B15 --> B153[executor.py]
+    B15 --> B154[storage.py]
+    B15 --> B155[types.py]
+    B15 --> B156[exceptions.py]
+
+    B2 --> B21[test_api.py]
+
+    %% Frontend
+    C --> C1[src/]
+    C --> C2[public/]
+    C --> C3[package.json]
+    C --> C4[README.md]
+
+    C1 --> C11[App.tsx]
+    C1 --> C12[App.css]
+    C1 --> C13[config.ts]
+    C1 --> C14[index.tsx]
+    C1 --> C15[index.css]
+```
 
 ## Features
 
