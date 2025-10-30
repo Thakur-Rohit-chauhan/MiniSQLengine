@@ -87,7 +87,56 @@ graph TD
     C1 --> C14[index.tsx]
     C1 --> C15[index.css]
 ```
+## CoreDB System Architecture
 
+```mermaid
+flowchart TD
+    %% ==== STYLE DEFINITIONS ====
+    classDef user fill:#eaf3ff,stroke:#1a73e8,stroke-width:2px,color:#0b2e6f,font-weight:bold;
+    classDef frontend fill:#fff4e5,stroke:#f9ab00,stroke-width:2px,color:#7c4400,font-weight:bold;
+    classDef backend fill:#e8f5e9,stroke:#34a853,stroke-width:2px,color:#0b4621,font-weight:bold;
+    classDef engine fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px,color:#4a148c,font-weight:bold;
+    classDef storage fill:#ffebee,stroke:#d93025,stroke-width:2px,color:#5f1210,font-weight:bold;
+    classDef api fill:#e0f2f1,stroke:#00897b,stroke-width:2px,color:#004d40,font-weight:bold;
+
+    %% ==== NODES ====
+    U["User Interface - Frontend Application"]:::user
+    F["React Frontend - App.tsx, config.ts"]:::frontend
+    A["FastAPI Backend - main.py, execute.py"]:::backend
+    L["Lexer - Tokenizes SQL Query"]:::engine
+    P["Parser - Builds Abstract Syntax Tree"]:::engine
+    E["Executor - Executes Parsed Query"]:::engine
+    S["Storage Layer - storage.py (Data Management)"]:::storage
+    R["API Response - JSON Output"]:::api
+
+    %% ==== FLOWS ====
+    U -->|"User action or SQL input"| F
+    F -->|"HTTP Request (JSON Payload)"| A
+    A -->|"Query Extraction"| L
+    L -->|"Tokens"| P
+    P -->|"AST"| E
+    E -->|"Read / Write Operations"| S
+    S -->|"Query Results"| E
+    E -->|"Execution Output"| A
+    A -->|"JSON Response"| F
+    F -->|"Render Data"| U
+
+    %% ==== GROUPING ====
+    subgraph FRONTEND ["Frontend Layer"]
+        direction TB
+        F
+    end
+
+    subgraph BACKEND ["Backend Layer"]
+        direction TB
+        A
+        subgraph ENGINE ["CoreDB SQL Engine"]
+            direction TB
+            L --> P --> E --> S
+        end
+    end
+yaml
+```
 ## Features
 
 ### Backend Features
